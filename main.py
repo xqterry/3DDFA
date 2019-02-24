@@ -43,17 +43,20 @@ def plot_kpt(image, kpt):
     # kpt = np.round(kpt).astype(np.int32)
     kpt = np.array(kpt)
     # print(kpt.shape, type(kpt))
-    kpt = np.squeeze(kpt, axis=0)
-    kpt = np.transpose(kpt, (1, 0))
+    # kpt = np.squeeze(kpt, axis=0)
+    # kpt = np.transpose(kpt, (2, 1))
 
     # print("KPT shape", kpt.shape)
     for i in range(kpt.shape[0]):
-        st = kpt[i, :2]
-        image = cv2.circle(image,(st[0], st[1]), 1, (0,0,255), 10)
-        if i in end_list:
-            continue
-        ed = kpt[i + 1, :2]
-        image = cv2.line(image, (st[0], st[1]), (ed[0], ed[1]), (255, 255, 255), 1)
+        pt = kpt[i]
+        pt = np.transpose(pt, (1, 0))
+        for j in range(pt.shape[0]):
+            st = pt[j, :2]
+            image = cv2.circle(image,(st[0], st[1]), 1, (0,0,255), 10)
+            if j in end_list:
+                continue
+            ed = pt[j + 1, :2]
+            image = cv2.line(image, (st[0], st[1]), (ed[0], ed[1]), (255, 255, 255), 1)
     return image
 
 def plot_mesh_simple(image, kpt):
