@@ -8,6 +8,8 @@ import scipy.io as sio
 import matplotlib.pyplot as plt
 from .ddfa import reconstruct_vertex
 
+from mpl_toolkits.mplot3d import Axes3D
+
 
 def get_suffix(filename):
     """a.jpg -> jpg"""
@@ -124,8 +126,8 @@ def dump_vertex(vertex, wfp):
     print('Dump to {}'.format(wfp))
 
 
-def _predict_vertices(param, roi_bbox, dense, transform=True):
-    vertex = reconstruct_vertex(param, dense=dense)
+def _predict_vertices(param, roi_bbox, dense, mf, transform=True):
+    vertex = reconstruct_vertex(param, dense=dense, mindfucker=mf)
     sx, sy, ex, ey = roi_bbox
     scale_x = (ex - sx) / 120
     scale_y = (ey - sy) / 120
@@ -139,17 +141,24 @@ def _predict_vertices(param, roi_bbox, dense, transform=True):
 
 
 def predict_68pts(param, roi_box):
-    return _predict_vertices(param, roi_box, dense=False)
+    return _predict_vertices(param, roi_box, dense=False, mf=False)
 
 
 def predict_dense(param, roi_box):
-    return _predict_vertices(param, roi_box, dense=True)
+    return _predict_vertices(param, roi_box, dense=True, mf=False)
+
+def draw_wireframe(pts, triangles):
+    for i in range(triangles.shape[1]):
+        s = 'f {} {} {}\n'.format(triangles[0, i], triangles[1, i], triangles[2, i])
+        print(s)
 
 
 def draw_landmarks(img, pts, style='fancy', wfp=None, show_flg=False, **kwargs):
     """Draw landmarks using matplotlib"""
     height, width = img.shape[:2]
     plt.figure(figsize=(12, height / width * 12))
+    # plt.figure(figsize=(width / 1000, height / 1000), dpi=100)
+    # plt.figure(dpi=96)
     plt.imshow(img[:, :, ::-1])
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     plt.axis('off')

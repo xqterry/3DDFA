@@ -31,6 +31,7 @@ dim = w_shp.shape[0] // 3
 u_base = u[keypoints].reshape(-1, 1)
 w_shp_base = w_shp[keypoints]
 w_exp_base = w_exp[keypoints]
+# std_size = 120
 std_size = 120
 
 # for paf (pac)
