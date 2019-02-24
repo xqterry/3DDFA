@@ -9,7 +9,7 @@ The pipeline of 3DDFA prediction: given one image, predict the 3d face vertices,
 [todo]
 1. CPU optimization: https://pmchojnacki.wordpress.com/2018/10/07/slow-pytorch-cpu-performance
 """
-
+import os
 import torch
 import torchvision.transforms as transforms
 import mobilenet_v1
@@ -27,6 +27,9 @@ from utils.paf import gen_img_paf
 import argparse
 import torch.backends.cudnn as cudnn
 
+from os import listdir
+from os.path import join, basename
+
 STD_SIZE = 120
 
 end_list = np.array([17, 22, 27, 42, 48, 31, 36, 68], dtype = np.int32) - 1
@@ -39,11 +42,11 @@ def plot_kpt(image, kpt):
     image = image.copy()
     # kpt = np.round(kpt).astype(np.int32)
     kpt = np.array(kpt)
-    print(kpt.shape, type(kpt))
+    # print(kpt.shape, type(kpt))
     kpt = np.squeeze(kpt, axis=0)
     kpt = np.transpose(kpt, (1, 0))
 
-    print("KPT shape", kpt.shape)
+    # print("KPT shape", kpt.shape)
     for i in range(kpt.shape[0]):
         st = kpt[i, :2]
         image = cv2.circle(image,(st[0], st[1]), 1, (0,0,255), 10)
@@ -715,15 +718,15 @@ def plot_mesh_simple(image, kpt):
                   [1522, 894, 1523], [1538, 937, 1540], [927, 937, 1530], [1540, 937, 1542], [1526, 1533, 1541],
                   [1523, 894, 927], [937, 1544, 1542], [1544, 937, 1545], [1543, 745, 1536], [1545, 937, 953]]
 
-    matched_dict = dict(matched)
+    # matched_dict = dict(matched)
     triangles = np.array(simple_tri)
 
     kpt = np.array(kpt)
-    print(kpt.shape, type(kpt))
+    # print(kpt.shape, type(kpt))
     # kpt = np.squeeze(kpt, axis=0)
     # kpt = np.transpose(kpt, (2, 1))
 
-    print("KPT shape", kpt.shape, triangles.shape)
+    # print("KPT shape", kpt.shape, triangles.shape)
 
     for k in range(kpt.shape[0]):
         for i in range(triangles.shape[0]):
@@ -738,9 +741,9 @@ def plot_mesh_simple(image, kpt):
             p1 = (vv[0, idx1], vv[1, idx1])
             p2 = (vv[0, idx2], vv[1, idx2])
 
-            image = cv2.line(image, (p0[0], p0[1]), (p1[0], p1[1]), (255, 255, 0), 1)
-            image = cv2.line(image, (p0[0], p0[1]), (p2[0], p2[1]), (255, 255, 0), 1)
-            image = cv2.line(image, (p2[0], p2[1]), (p1[0], p1[1]), (255, 255, 0), 1)
+            image = cv2.line(image, (p0[0], p0[1]), (p1[0], p1[1]), (255, 255, 255), 1)
+            image = cv2.line(image, (p0[0], p0[1]), (p2[0], p2[1]), (255, 255, 255), 1)
+            image = cv2.line(image, (p2[0], p2[1]), (p1[0], p1[1]), (255, 255, 255), 1)
 
     return image
 
@@ -768,6 +771,9 @@ def plot_mesh(image, kpt, triangles):
             image = cv2.line(image, (p2[0], p2[1]), (p1[0], p1[1]), (255, 255, 0), 1)
 
     return image
+
+def is_image_file(filename):
+    return any(filename.endswith(extension) for extension in ['.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG', '.tif'])
 
 def main(args):
     # 1. load pre-tained model
@@ -797,7 +803,15 @@ def main(args):
     # 3. forward
     tri = sio.loadmat('visualize/tri.mat')['tri']
     transform = transforms.Compose([ToTensorGjz(), NormalizeGjz(mean=127.5, std=128)])
-    for img_fp in args.files:
+
+    filenames = [join(args.files, x) for x in listdir(args.files) if is_image_file(x)]
+    filenames.sort()
+
+    result_fn = join(args.files, 'results')
+    if not os.path.exists(result_fn):
+        os.mkdir(result_fn)
+
+    for img_fp in filenames:
         img_ori = cv2.imread(img_fp)
         if args.dlib_bbox:
             rects = face_detector(img_ori, 1)
@@ -866,7 +880,7 @@ def main(args):
             poses.append(pose)
 
             # dense face 3d vertices
-            if args.dump_ply or args.dump_vertex or args.dump_depth or args.dump_pncc or args.dump_obj:
+            if args.dump_ply or args.dump_vertex or args.dump_depth or args.dump_pncc or args.dump_obj or args.dump_res:
                 vertices = predict_dense(param, roi_box)
                 print('vertex size is = ', len(vertices), vertices.shape, "param len ", len(param))
                 vertices_lst.append(vertices)
@@ -919,38 +933,42 @@ def main(args):
             # print(pts_res, len(pts_res), len(pts_res[0][0]))
             # draw_landmarks(img_ori, pts_res, wfp=img_fp.replace(suffix, '_3DDFA.jpg'), show_flg=args.show_flg, color='yellow')
 
-            print("dump res")
+            # print("dump res")
             h, w = img_ori.shape[:2]
             blank = np.zeros((h, w, 3))
             result = plot_kpt(blank, pts_res)
-            print(result.shape)
-            cv2.imwrite(img_fp.replace(suffix, '_3DDFA_landmark.jpg'), result)
+            # print(result.shape)
+            bn = basename(img_fp)
+            ofn = join(result_fn, bn).replace(suffix, '_landmark.jpg')
+            cv2.imwrite(ofn, result)
 
             # tri2 = tri / 29
             # print(tri2, tri)
             result = plot_mesh_simple(blank, vertices_lst)
-            cv2.imwrite(img_fp.replace(suffix, '_3DDFA_mesh.jpg'), result)
+
+            ofn = join(result_fn, bn).replace(suffix, '_mesh.jpg')
+            cv2.imwrite(ofn, result)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='3DDFA inference pipeline')
-    parser.add_argument('-f', '--files', nargs='+',
+    parser.add_argument('-f', '--files', # nargs='+',
                         help='image files paths fed into network, single or multiple images')
-    parser.add_argument('-m', '--mode', default='cpu', type=str, help='gpu or cpu mode')
-    parser.add_argument('--show_flg', default='true', type=str2bool, help='whether show the visualization result')
+    parser.add_argument('-m', '--mode', default='gpu', type=str, help='gpu or cpu mode')
+    parser.add_argument('--show_flg', default='false', type=str2bool, help='whether show the visualization result')
     parser.add_argument('--bbox_init', default='one', type=str,
                         help='one|two: one-step bbox initialization or two-step')
     parser.add_argument('--dump_res', default='true', type=str2bool, help='whether write out the visualization image')
     parser.add_argument('--dump_vertex', default='false', type=str2bool,
                         help='whether write out the dense face vertices to mat')
-    parser.add_argument('--dump_ply', default='true', type=str2bool)
-    parser.add_argument('--dump_pts', default='true', type=str2bool)
+    parser.add_argument('--dump_ply', default='false', type=str2bool)
+    parser.add_argument('--dump_pts', default='false', type=str2bool)
     parser.add_argument('--dump_roi_box', default='false', type=str2bool)
     parser.add_argument('--dump_pose', default='false', type=str2bool)
     parser.add_argument('--dump_depth', default='false', type=str2bool)
     parser.add_argument('--dump_pncc', default='false', type=str2bool)
     parser.add_argument('--dump_paf', default='false', type=str2bool)
     parser.add_argument('--paf_size', default=3, type=int, help='PAF feature kernel size')
-    parser.add_argument('--dump_obj', default='true', type=str2bool)
+    parser.add_argument('--dump_obj', default='false', type=str2bool)
     parser.add_argument('--dlib_bbox', default='true', type=str2bool, help='whether use dlib to predict bbox')
     parser.add_argument('--dlib_landmark', default='true', type=str2bool,
                         help='whether use dlib landmark to crop image')

@@ -40,7 +40,7 @@ def reconstruct_vertex(param, whitening=True, dense=False, transform=True, mindf
             param = param * param_std + param_mean
 
     p, offset, alpha_shp, alpha_exp = _parse_param(param)
-    print(p.shape, offset.shape, alpha_exp.shape, alpha_shp.shape, w_shp.shape, w_exp.shape, u.shape)
+    # print(p.shape, offset.shape, alpha_exp.shape, alpha_shp.shape, w_shp.shape, w_exp.shape, u.shape)
 
     if dense:
         if mindfucker:
